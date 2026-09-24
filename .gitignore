@@ -1,0 +1,55 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environments and Secrets
+.env
+.env.*
+*.env
+*.key
+*.pem
+*.token
+*.pfx
+secrets.*
+credentials.json
+
+# Temporary EDA Simulation & Tool Artifacts
+*.vvp
+*.vcd
+*.fst
+*.lxt
+*.lxt2
+sim.vvp
+dump.vcd
+*.out
+*.log
+yosys.log
+openroad.log
+build/
+dist/
+*.egg-info/
+
+# Node & Package Managers
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS & Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo

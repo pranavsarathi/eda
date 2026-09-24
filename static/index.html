@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RTL → Pre-Physical Design Estimation Workstation</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/vendor/three.min.js"></script>
+  <script src="/js/vendor/OrbitControls.js"></script>
+</head>
+<body>
+  <!-- Header Bar -->
+  <header class="eda-header">
+    <div class="brand">
+      <div class="brand-icon">Ω</div>
+      <div>
+        <div class="brand-title">RTL → PRE-PHYSICAL DESIGN</div>
+        <div class="brand-subtitle">Physical VLSI Estimation Workstation</div>
+      </div>
+    </div>
+
+    <!-- Configuration Controls -->
+    <div class="header-controls">
+      <div class="control-group">
+        <span class="control-label">Tech:</span>
+        <select id="tech-node-select">
+          <option value="130nm" selected>130nm Generic</option>
+          <option value="180nm">180nm CMOS</option>
+          <option value="65nm">65nm Low-Power</option>
+          <option value="45nm">45nm HKMG</option>
+          <option value="28nm">28nm FD-SOI</option>
+          <option value="7nm">7nm FinFET</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">Clock:</span>
+        <input type="number" id="clock-target-input" value="100" min="10" max="2000" style="width: 52px;">
+        <span style="font-size:10px; color:#94a3b8;">MHz</span>
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">Util:</span>
+        <input type="number" id="core-util-input" value="70" min="20" max="95" style="width: 42px;">
+        <span style="font-size:10px; color:#94a3b8;">%</span>
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">Aspect:</span>
+        <input type="number" id="aspect-ratio-input" value="1.0" step="0.1" min="0.2" max="5.0" style="width: 42px;">
+      </div>
+
+      <div class="control-group" style="border-color:#38bdf8;">
+        <span class="control-label" style="color:#38bdf8;">Examples ▾</span>
+        <select id="example-select" style="max-width: 130px; font-weight:600;">
+          <option value="" disabled selected>Select Example...</option>
+          <option value="counter">Counter</option>
+          <option value="alu">ALU</option>
+          <option value="fsm">FSM</option>
+          <option value="vending_machine">Vending Machine</option>
+        </select>
+      </div>
+
+      <!-- Primary Action Button -->
+      <button id="btn-run" class="btn btn-primary" onclick="runAnalysis()">
+        <span>▶</span> RUN ANALYSIS
+      </button>
+
+      <button class="btn" onclick="downloadReport()">
+        <span>📄</span> Download Report
+      </button>
+    </div>
+  </header>
+
+  <!-- Stale Alert Banner -->
+  <div id="stale-banner" class="stale-banner" style="display:none;">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="font-size:15px;">⚠️</span>
+      <span><strong>CODE CHANGED.</strong> Previous analysis is no longer valid. Click <strong>[RUN ANALYSIS]</strong> to update.</span>
+    </div>
+    <button class="btn btn-primary" onclick="runAnalysis()" style="padding:3px 10px; font-size:11px;">▶ RUN ANALYSIS</button>
+  </div>
+
+  <!-- Main Workstation Layout -->
+  <div class="main-workspace">
+    <!-- Left Pane: Code Editors (RTL + Testbench) -->
+    <div class="left-pane">
+      <div class="pane-header">
+        <div class="editor-tabs">
+          <button class="tab-btn active" data-tab="rtl">RTL (Verilog)</button>
+          <button class="tab-btn" data-tab="tb">TESTBENCH</button>
+        </div>
+        <div style="font-size:11px; color:#64748b; font-family:var(--font-mono);" id="editor-file-info">module counter_8bit</div>
+      </div>
+
+      <div class="editor-container">
+        <!-- RTL Verilog Code Editor -->
+        <textarea id="rtl-editor" class="code-editor" spellcheck="false" placeholder="// Enter synthesizable Verilog / SystemVerilog RTL here..."></textarea>
+        <!-- Testbench Code Editor -->
+        <textarea id="tb-editor" class="code-editor" style="display:none;" spellcheck="false" placeholder="// Enter Verilog testbench with initial begin ... end here..."></textarea>
+      </div>
+
+      <div class="editor-footer">
+        <span id="editor-line-status">Lines: 0</span>
+        <span style="color:#64748b;">Single Source of Truth: Edits directly govern hardware & physical estimation</span>
+      </div>
+    </div>
+
+    <!-- Right Pane: Analysis Workspace (VERIFY, HARDWARE, PHYSICAL, REPORT) -->
+    <div class="right-pane">
+      <!-- Navigation Tabs -->
+      <div class="visualizer-nav">
+        <div class="nav-tabs">
+          <div class="nav-tab active" data-view="view-verify">
+            <span>🛡️</span> VERIFY
+          </div>
+          <div class="nav-tab" data-view="view-hardware">
+            <span>⚡</span> HARDWARE
+          </div>
+          <div class="nav-tab" data-view="view-physical">
+            <span>🗺️</span> PHYSICAL
+          </div>
+          <div class="nav-tab" data-view="view-report">
+            <span>📑</span> REPORT
+          </div>
+        </div>
+
+        <div>
+          <span id="status-verif-badge" class="badge badge-pass">READY</span>
+        </div>
+      </div>
+
+      <!-- Core Screens / View Panels -->
+      <div class="view-container">
+
+        <!-- 1. VERIFY SCREEN -->
+        <div id="view-verify" class="view-panel active">
+          <div id="verification-content">
+            <!-- Dynamically populated by renderVerificationDashboard -->
+          </div>
+        </div>
+
+        <!-- 2. HARDWARE SCREEN -->
+        <div id="view-hardware" class="view-panel">
+          <div id="hardware-content" style="padding:20px; overflow-y:auto; height:100%;">
+            <!-- Dynamically populated by renderHardwareScreen -->
+          </div>
+        </div>
+
+        <!-- 3. PHYSICAL SCREEN (Floorplan 2D, Critical Path, Congestion, Optional 3D) -->
+        <div id="view-physical" class="view-panel">
+          <div class="physical-layout">
+            <!-- Primary Canvas Area -->
+            <div class="physical-canvas-container">
+              <!-- 2D Canvas Wrapper -->
+              <div id="canvas2d-wrapper" style="width:100%; height:100%; position:relative;">
+                <canvas id="canvas2d"></canvas>
+
+                <!-- 2D Layer Controls Toolbar -->
+                <div class="canvas-toolbar">
+                  <div style="font-weight:700; color:#38bdf8; font-size:10px; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>PHYSICAL LAYERS</span>
+                    <button id="toggle-3d-btn" class="btn btn-sm" onclick="togglePhysicalMode()" style="padding:2px 6px; font-size:9px;">Switch to 3D</button>
+                  </div>
+                  <div class="canvas-toolbar-row">
+                    <label class="layer-toggle"><input type="checkbox" class="layer-checkbox" data-layer="die" checked> Die/Core</label>
+                    <label class="layer-toggle"><input type="checkbox" class="layer-checkbox" data-layer="rows" checked> Rows</label>
+                    <label class="layer-toggle"><input type="checkbox" class="layer-checkbox" data-layer="cells" checked> Cells</label>
+                  </div>
+                  <div class="canvas-toolbar-row">
+                    <label class="layer-toggle"><input type="checkbox" class="layer-checkbox" data-layer="routes" checked> Wire Routes</label>
+                    <label class="layer-toggle"><input type="checkbox" class="layer-checkbox" data-layer="clock" checked> Clock Tree</label>
+                    <label class="layer-toggle"><input type="checkbox" class="layer-checkbox" data-layer="power" checked> Power Grid</label>
+                  </div>
+                  <div class="canvas-toolbar-row">
+                    <label class="layer-toggle"><input type="checkbox" class="layer-checkbox" data-layer="congestion"> Congestion</label>
+                    <label class="layer-toggle"><input type="checkbox" class="layer-checkbox" data-layer="criticalPath" checked> Critical Net</label>
+                    <label class="layer-toggle"><input type="checkbox" class="layer-checkbox" data-layer="pins" checked> IO Pins</label>
+                  </div>
+                </div>
+
+                <!-- Inspector Card on Hover -->
+                <div id="inspector-card" class="inspector-card"></div>
+              </div>
+
+              <!-- Secondary 3D Canvas Wrapper (Cleanly Toggled) -->
+              <div id="canvas3d-wrapper" style="display:none; width:100%; height:100%; position:relative;">
+                <div class="canvas3d-toolbar">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <span style="font-weight:700; color:#38bdf8; font-size:11px;">3D SILICON STACK</span>
+                    <button class="btn btn-sm" onclick="togglePhysicalMode()" style="padding:2px 6px; font-size:9px;">Switch to 2D</button>
+                  </div>
+                  <label class="layer-toggle"><input type="checkbox" class="layer3d-checkbox" data-layer3d="cells" checked> Cells</label>
+                  <label class="layer-toggle"><input type="checkbox" class="layer3d-checkbox" data-layer3d="metal2" checked> Routing</label>
+                  <label class="layer-toggle"><input type="checkbox" class="layer3d-checkbox" data-layer3d="clockTree" checked> Clock Tree</label>
+                  <label class="layer-toggle"><input type="checkbox" class="layer3d-checkbox" data-layer3d="powerMesh" checked> Power Mesh</label>
+                  <div style="margin-top:6px; font-size:10px; color:#64748b;">Rotate: Left Click | Pan: Right Click | Zoom: Scroll</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Physical Sidebar: Metrics, Contextual WHY, Critical Path -->
+            <div class="physical-sidebar">
+              <!-- Physical Metrics Grid with Contextual [?] -->
+              <div class="physical-metrics-box">
+                <div class="sec-title">PHYSICAL METRICS [ESTIMATED / HEURISTIC]</div>
+                <div class="phys-metric-row">
+                  <span class="phys-label">Core Area <span style="font-size:9px; color:#38bdf8;">[EST]</span>:</span>
+                  <div class="phys-val-wrap">
+                    <span id="phys-area-val" class="phys-val">--</span>
+                    <button class="why-btn" onclick="showContextualWhy('area')" title="Why this area?">?</button>
+                  </div>
+                </div>
+                <div class="phys-metric-row">
+                  <span class="phys-label">Core Dims <span style="font-size:9px; color:#38bdf8;">[EST]</span>:</span>
+                  <div class="phys-val-wrap">
+                    <span id="phys-dim-val" class="phys-val">--</span>
+                    <button class="why-btn" onclick="showContextualWhy('floorplan')" title="Why this floorplan?">?</button>
+                  </div>
+                </div>
+                <div class="phys-metric-row">
+                  <span class="phys-label">Fmax <span style="font-size:9px; color:#38bdf8;">[EST]</span>:</span>
+                  <div class="phys-val-wrap">
+                    <span id="phys-fmax-val" class="phys-val">--</span>
+                    <button class="why-btn" onclick="showContextualWhy('timing')" title="Why this Fmax?">?</button>
+                  </div>
+                </div>
+                <div class="phys-metric-row">
+                  <span class="phys-label">Setup Slack <span style="font-size:9px; color:#38bdf8;">[EST]</span>:</span>
+                  <div class="phys-val-wrap">
+                    <span id="phys-slack-val" class="phys-val">--</span>
+                    <button class="why-btn" onclick="showContextualWhy('timing')" title="Why this slack?">?</button>
+                  </div>
+                </div>
+                <div class="phys-metric-row">
+                  <span class="phys-label">Congestion <span style="font-size:9px; color:#f59e0b;">[HEUR]</span>:</span>
+                  <div class="phys-val-wrap">
+                    <span id="phys-cong-val" class="phys-val">--</span>
+                    <button class="why-btn" onclick="showContextualWhy('routing')" title="Why this congestion?">?</button>
+                  </div>
+                </div>
+                <div class="phys-metric-row">
+                  <span class="phys-label">Clock Skew <span style="font-size:9px; color:#38bdf8;">[EST]</span>:</span>
+                  <div class="phys-val-wrap">
+                    <span id="phys-clock-val" class="phys-val">--</span>
+                    <button class="why-btn" onclick="showContextualWhy('cts')" title="Why this clock tree?">?</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Contextual Critical Path Sequence -->
+              <div class="critical-path-box">
+                <div class="sec-title">ESTIMATED CRITICAL PATH</div>
+                <div id="phys-critical-path-content">
+                  <div style="color:#64748b; font-size:11px; padding:8px 0;">Run analysis to trace timing path.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. REPORT SCREEN -->
+        <div id="view-report" class="view-panel">
+          <div style="padding:16px 20px; height:100%; display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; background:#111827; padding:10px 16px; border-radius:6px; border:1px solid var(--border-color);">
+              <div>
+                <div style="font-weight:700; color:#f1f5f9; font-size:13px;">Pre-Physical Design Estimation Report</div>
+                <div style="font-size:11px; color:#94a3b8;">Complete, auditable VLSI physical implementation estimate</div>
+              </div>
+              <button class="btn btn-primary" onclick="downloadReport()">
+                <span>📄</span> Download Report (HTML)
+              </button>
+            </div>
+            <iframe id="report-frame" style="flex:1; width:100%; border:1px solid var(--border-color); border-radius:6px; background:#070a0f;"></iframe>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Contextual WHY Popover Modal -->
+  <div id="why-modal" class="why-modal" style="display:none;" onclick="closeContextualWhy(event)">
+    <div class="why-modal-content" onclick="event.stopPropagation()">
+      <div class="why-modal-header">
+        <div id="why-modal-title" style="font-weight:700; color:#38bdf8; font-size:13px;">WHY? Causal Hardware Explanation</div>
+        <button class="why-modal-close" onclick="closeContextualWhy()">&times;</button>
+      </div>
+      <div id="why-modal-body" class="why-modal-body">
+        <!-- Injected dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Status Bar -->
+  <footer class="eda-status-bar">
+    <div class="status-chips">
+      <div class="status-chip">
+        <span class="chip-label">Status:</span>
+        <span id="status-pipeline-state" class="chip-val" style="color:#10b981;">Ready</span>
+      </div>
+      <div class="status-chip">
+        <span class="chip-label">Standard Cells:</span>
+        <span id="status-cells" class="chip-val">--</span>
+      </div>
+      <div class="status-chip">
+        <span class="chip-label">Core Area:</span>
+        <span id="status-area" class="chip-val">--</span>
+      </div>
+      <div class="status-chip">
+        <span class="chip-label">Estimated Fmax:</span>
+        <span id="status-fmax" class="chip-val" style="color:#38bdf8;">--</span>
+      </div>
+      <div class="status-chip">
+        <span class="chip-label">Worst Slack:</span>
+        <span id="status-slack" class="chip-val" style="color:#10b981;">--</span>
+      </div>
+    </div>
+
+    <div>
+      <span class="chip-label">Runtime:</span>
+      <span id="status-elapsed" class="chip-val" style="color:#cbd5e1;">--</span>
+    </div>
+  </footer>
+
+  <script src="/js/visualizer2d.js"></script>
+  <script src="/js/visualizer3d.js"></script>
+  <script src="/js/schematic_view.js"></script>
+  <script src="/js/cross_probe.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
