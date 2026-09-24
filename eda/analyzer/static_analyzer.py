@@ -1,6 +1,50 @@
 # Static RTL Analysis & Quality Linting Engine
 from typing import Dict, List, Any, Set, Tuple, Optional
-import networkx as nx
+
+try:
+    import networkx as nx
+    HAS_NETWORKX = True
+except ImportError:
+    HAS_NETWORKX = False
+
+    class _SimpleDiGraph:
+        def __init__(self):
+            self.adj = {}
+        def add_edge(self, u, v):
+            if u not in self.adj:
+                self.adj[u] = []
+            if v not in self.adj[u]:
+                self.adj[u].append(v)
+            if v not in self.adj:
+                self.adj[v] = []
+
+    def _simple_cycles(graph):
+        adj = getattr(graph, 'adj', {})
+        visited = set()
+        stack = []
+        stack_set = set()
+        cycles = []
+        def dfs(node):
+            visited.add(node)
+            stack.append(node)
+            stack_set.add(node)
+            for neighbor in adj.get(node, []):
+                if neighbor in stack_set:
+                    idx = stack.index(neighbor)
+                    cycles.append(stack[idx:])
+                elif neighbor not in visited:
+                    dfs(neighbor)
+            stack_set.remove(node)
+            stack.pop()
+        for n in list(adj.keys()):
+            if n not in visited:
+                dfs(n)
+        return cycles
+
+    class _NxShim:
+        DiGraph = _SimpleDiGraph
+        simple_cycles = staticmethod(_simple_cycles)
+    nx = _NxShim()
 
 from eda.parser.ast_nodes import (
     DesignAST, ModuleNode, PortNode, SignalDeclNode, AssignNode,

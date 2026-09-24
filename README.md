@@ -1,10 +1,15 @@
 # RTL → Pre-Physical-Design Learning & Estimation Tool
 **An Educational Bridge between RTL Simulation and Real ASIC Physical Design**
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-success?style=for-the-badge&logo=github)](https://pranavsarathi.github.io/rtl-pre-physical-design-workstation/)
 [![Quality Gate](https://img.shields.io/badge/Quality%20Gate-98%2F100%20PASS-brightgreen)](#quality-gate)
 [![Test Suite](https://img.shields.io/badge/Test%20Suite-40%2F40%20Passed-blue)](#automated-test-suite)
 [![PDK](https://img.shields.io/badge/Target%20PDK-SkyWater%20130nm-orange)](#technology-models)
 [![Python](https://img.shields.io/badge/Python-3.10+-blue)](#quick-start)
+
+> 🚀 **Live Interactive Web Workstation:**  
+> **[https://pranavsarathi.github.io/rtl-pre-physical-design-workstation/](https://pranavsarathi.github.io/rtl-pre-physical-design-workstation/)**  
+> Run complete RTL simulation, hardware inference, floorplanning, placement, CTS, routing, and 2D/3D physical layout estimation directly inside your browser!
 
 ---
 
